@@ -3,7 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstdio>
-
+#include <cmath>
 #include <filesystem>
 #include <vector>
 #include <string>
@@ -14,6 +14,8 @@
 #include "fileref.h"
 
 using namespace std;
+
+typedef Vector2 vec2;
 
 struct Track
 {
@@ -36,23 +38,34 @@ struct Album
 
 struct Drawer
 {
-    void draw()
+    void draw(vec2 gridPos, Texture2D& drawer, Texture2D& drawerPart)
     {
+        float x = gridPos.x * rectSize.x * 0.65f;
+        float y = gridPos.y * rectSize.y * 0.325f;
+        float scale = rectSize.x / drawer.width;
         
+        for(int i = 10; i > 0; i--)
+        {
+            DrawTextureEx(drawerPart, vec2(x + rectSize.x * 0.2f * i, (x-rectSize.x * 0.2f * i)/1.75f + y), 0, scale, WHITE);
+        }   
+        x = gridPos.x * rectSize.x * 0.65f;
+        DrawTextureEx(drawer, vec2(x, x/1.75f + y), 0, scale, WHITE);
     }
+    vec2 rectSize = vec2(200, 200);
     string artist = "";
     vector<Album> albums;
 };
 
+const int PROGRESS_PRECISION = 20;
+
 int main()
 {
     InitWindow(512, 512, "epic music player");
+    SetTargetFPS(60);
     vector<Drawer> drawers;
     string path = "C:/Users/solat/Music";
     Texture2D drawerPartTex = LoadTexture("res/drawerPart.png");
-    Image img = LoadImage("res/drawer.png");
-    Texture2D drawerTex = LoadTextureFromImage(img);
-    UnloadImage(img);
+    Texture2D drawerTex = LoadTexture("res/drawer.png");
 
 
     //---------------------------FINDS ALL ARTISTS----------------------------
@@ -75,9 +88,16 @@ int main()
     }
 
     //---ADDS A DRAWER FOR EACH ARTIST AND ADD EACH ALBUM FROM ARTIST TO DRAWER---
-
+    int a = 0;
     for(auto& artist : artists)
     {
+        string progress = "";
+        for(int i = 0; i < PROGRESS_PRECISION; i++)
+        {
+            if(i < ceil(a / (float)artists.size() * PROGRESS_PRECISION)) progress += "I";
+            else progress += "_";
+        }
+        cout <<"progress:" <<  progress << endl;
         Drawer drawer;
         vector<Album> albums;
         for(auto& album : filesystem::directory_iterator(path))
@@ -117,6 +137,7 @@ int main()
         drawer.albums = albums;
         drawer.artist = artist;
         drawers.push_back(drawer);
+        a++;
     }
 
 
@@ -137,6 +158,12 @@ int main()
     {
         BeginDrawing();
         ClearBackground(BLACK);
+        int ratio = floor(drawers.size()/3.f);
+        for(int y = 3; y >= 0; y--)
+        for(int i = 0; i < ratio; i++)
+        {
+            drawers[i].draw(vec2(i, y+1), drawerTex, drawerPartTex);
+        }
         EndDrawing();
     }
     return 0;
