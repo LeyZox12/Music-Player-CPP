@@ -46,10 +46,16 @@ struct Drawer
         
         for(int i = 10; i > 0; i--)
         {
-            DrawTextureEx(drawerPart, vec2(x + rectSize.x * 0.2f * i, (x-rectSize.x * 0.2f * i)/1.75f + y), 0, scale, WHITE);
+            vec2 pos = vec2(x + rectSize.x * 0.2f * i, (x-rectSize.x * 0.2f * i)/1.75f + y);
+            DrawTextureEx(drawer, pos, 0, scale, WHITE);
+            if(gridPos.y == 0)
+                DrawTextureEx(drawerPart, pos, 0, scale, WHITE);
+
         }   
         x = gridPos.x * rectSize.x * 0.65f;
         DrawTextureEx(drawer, vec2(x, x/1.75f + y), 0, scale, WHITE);
+        if(gridPos.y == 0)
+            DrawTextureEx(drawerPart, vec2(x, x/1.75f), 0, scale, WHITE);
     }
     vec2 rectSize = vec2(200, 200);
     string artist = "";
@@ -57,6 +63,7 @@ struct Drawer
 };
 
 const int PROGRESS_PRECISION = 20;
+const float MOVE_SPEED = 3.f;
 
 int main()
 {
@@ -140,29 +147,35 @@ int main()
         a++;
     }
 
-
+    sort(drawers.begin(), drawers.end(), [](auto& d1, auto& d2){return (uint8_t)d1.artist[0] < (uint8_t)d2.artist[0];});
     for(auto& drawer: drawers)
     {
         cout << drawer.artist << "'s drawer:" << endl;
-        for(auto& album : drawer.albums){
+        /*for(auto& album : drawer.albums){
             cout << "   " << album.name <<"'s tracks:" <<endl;
             for(auto& track: album.tracks)
             {
                 cout << "       " << track.name << endl;
             }
 
-        }
+        }*/
     }
         
+    vec2 pos = vec2(0, 0);
+    vec2 openedPos = vec2(0, 0);
+    bool opened = false;///TODO implement opening drawer on click
+    float dt = 1.f / 60.f;
     while(!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(BLACK);
         int ratio = floor(drawers.size()/3.f);
+        if(IsKeyDown(KEY_LEFT)) pos.x -= MOVE_SPEED * dt;
+        else if(IsKeyDown(KEY_RIGHT)) pos.x += MOVE_SPEED * dt;
         for(int y = 3; y >= 0; y--)
         for(int i = 0; i < ratio; i++)
         {
-            drawers[i].draw(vec2(i, y+1), drawerTex, drawerPartTex);
+            drawers[i].draw(vec2(i+pos.x, y), drawerTex, drawerPartTex);
         }
         EndDrawing();
     }
