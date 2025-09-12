@@ -38,39 +38,47 @@ struct Album
 
 struct Drawer
 {
-    void draw(vec2 gridPos, Texture2D& drawer, Texture2D& drawerPart)
+    void draw(vec2 gridPos, Texture2D& drawer, Texture2D& drawerPart, bool opened)
     {
         float x = gridPos.x * rectSize.x * 0.65f;
         float y = gridPos.y * rectSize.y * 0.325f;
         float scale = rectSize.x / drawer.width;
-        
+        float targetOffset = opened ? -5.f : 0.f;
+        offset += (targetOffset - offset) / 5.f;
         for(int i = 10; i > 0; i--)
         {
-            vec2 pos = vec2(x + rectSize.x * 0.2f * i, (x-rectSize.x * 0.2f * i)/1.75f + y);
+            vec2 pos = vec2(x + rectSize.x * 0.2f * (i+offset), (x-rectSize.x * 0.2f * (i+offset))/1.75f + y);
             DrawTextureEx(drawer, pos, 0, scale, WHITE);
+            pos = vec2(x + rectSize.x * 0.2f * i, (x-rectSize.x * 0.2f * i)/1.75f + y);
             if(gridPos.y == 0)
                 DrawTextureEx(drawerPart, pos, 0, scale, WHITE);
 
-        }   
+        } 
         x = gridPos.x * rectSize.x * 0.65f;
-        DrawTextureEx(drawer, vec2(x, x/1.75f + y), 0, scale, WHITE);
+        DrawTextureEx(drawer, vec2(x + rectSize.x * offset * 0.2f, (x-rectSize.x * 0.2f * offset)/1.75f + y), 0, scale, WHITE);
         if(gridPos.y == 0)
             DrawTextureEx(drawerPart, vec2(x, x/1.75f), 0, scale, WHITE);
     }
     vec2 rectSize = vec2(200, 200);
+    float offset = 0.f;
     string artist = "";
     vector<Album> albums;
 };
 
+vector<Drawer> drawers;
+vec2 pos = vec2(0, 0);
+
 const int PROGRESS_PRECISION = 20;
 const float MOVE_SPEED = 3.f;
+
+int getDrawerIndex();
 
 int main()
 {
     InitWindow(512, 512, "epic music player");
     SetTargetFPS(60);
-    vector<Drawer> drawers;
-    string path = "C:/Users/solat/Music";
+    string path = "../../../../Music";
+    path = "C:/Users/solat/Music";
     Texture2D drawerPartTex = LoadTexture("res/drawerPart.png");
     Texture2D drawerTex = LoadTexture("res/drawer.png");
 
@@ -157,27 +165,49 @@ int main()
             {
                 cout << "       " << track.name << endl;
             }
-
         }*/
     }
         
-    vec2 pos = vec2(0, 0);
-    vec2 openedPos = vec2(0, 0);
-    bool opened = false;///TODO implement opening drawer on click
+
+
+    int openedIndex = -1;
+    bool opened = false;
     float dt = 1.f / 60.f;
     while(!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(BLACK);
         int ratio = floor(drawers.size()/3.f);
-        if(IsKeyDown(KEY_LEFT)) pos.x -= MOVE_SPEED * dt;
-        else if(IsKeyDown(KEY_RIGHT)) pos.x += MOVE_SPEED * dt;
-        for(int y = 3; y >= 0; y--)
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            int index = getDrawerIndex();
+            if(index > -1)
+            {
+                opened = !opened;
+                openedIndex = index;
+            }
+
+        }
+        if(IsKeyDown(KEY_LEFT)) pos.x += MOVE_SPEED * dt;
+        else if(IsKeyDown(KEY_RIGHT)) pos.x -= MOVE_SPEED * dt;
+        for(int y = 2; y >= 0; y--)
         for(int i = 0; i < ratio; i++)
         {
-            drawers[i].draw(vec2(i+pos.x, y), drawerTex, drawerPartTex);
+            bool isOpened = openedIndex == i+y*ratio && opened;
+            drawers[i+y*ratio].draw(vec2(i+pos.x, y), drawerTex, drawerPartTex, isOpened);
         }
         EndDrawing();
     }
     return 0;
+}
+
+int getDrawerIndex()
+{
+    vec2 mousepos = GetMousePosition();
+    mousepos.x -= pos.x;//TODO FIX THIS NOT GOOD
+    int x = floor(mousepos.x / 128.f);
+    int y = floor((mousepos.y-mousepos.x*0.558f) / 67.f)-1;
+    int index = x + y*(floor(drawers.size()/3.f));
+    if(index < drawers.size()) return index;
+    return -1;
 }
