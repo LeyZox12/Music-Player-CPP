@@ -12,9 +12,12 @@
 #include "tstringlist.h"
 #include "tvariant.h"
 #include "fileref.h"
+#include <mpegfile.h>
+#include <attachedpictureframe.h>
+#include <id3v2tag.h>
 
 using namespace std;
-
+//TODO make albums iso + put them in the right place + placeholder if no cover
 typedef Vector2 vec2;
 
 struct Track
@@ -27,14 +30,15 @@ struct Track
 struct Album
 {
     Album(){};
-    Album(vector<Track> tracks, Texture2D icon, bool hasImage)
-    :tracks(tracks), icon(icon), hasImage(hasImage) {}
     vector<Track> tracks;
     string name;
-    Texture2D icon;
     Rectangle rect;
+    Texture2D cover;
     bool hasImage = false;
 };
+
+const vec2 rectSize = vec2(200.f, 200.f);
+const float coverSize = 100.f;
 
 struct Drawer
 {
@@ -59,7 +63,6 @@ struct Drawer
         if(gridPos.y == 0)
             DrawTextureEx(drawerPart, vec2(x, x/1.75f), 0, scale, WHITE);
     }
-    vec2 rectSize = vec2(200, 200);
     float offset = 0.f;
     string artist = "";
     vector<Album> albums;
@@ -123,6 +126,7 @@ int main()
             vector<Track> tracks;
             if(filesystem::is_directory(album))
             {
+                int songIndex = 0;
                 for(auto& song : filesystem::directory_iterator(album))
                 {
                     const char* p =  song.path().string().c_str();
@@ -136,6 +140,25 @@ int main()
                             shouldAdd = false;
                             break;
                         }
+
+                        if(songIndex++ == 0)
+                        {
+                            TagLib::File* file = f.file();
+                            TagLib::MPEG::File* f2((TagLib::MPEG::File*)file);
+                            TagLib::ID3v2::Tag *m_tag = f2->ID3v2Tag(true);
+                            TagLib::ID3v2::FrameList fl = m_tag->frameList("APIC");
+                            if(!fl.isEmpty())
+                            {
+                                TagLib::ID3v2::AttachedPictureFrame *coverImg = static_cast<TagLib::ID3v2::AttachedPictureFrame*>(fl.front());
+                                albumObject.cover = LoadTextureFromImage(LoadImageFromMemory(".png", reinterpret_cast<const unsigned char *>(coverImg->picture().data()),coverImg->picture().size()));
+                            }
+                            else
+                            {
+                                cout << "cover not found\n";
+                            }
+                        }
+
+
                         albumObject.name = tag->album().to8Bit();
                         tracks.emplace_back(Track(p, tag->title().to8Bit()));
                     }
@@ -181,7 +204,7 @@ int main()
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
             int index = getDrawerIndex();
-            if(index > -1)
+            if(index > -1 && index < drawers.size())
             {
                 opened = !opened;
                 openedIndex = index;
@@ -196,6 +219,15 @@ int main()
             bool isOpened = openedIndex == i+y*ratio && opened;
             drawers[i+y*ratio].draw(vec2(i+pos.x, y), drawerTex, drawerPartTex, isOpened);
         }
+        if(opened && openedIndex > -1)
+        {
+            int i = 0;
+            for(auto& album : drawers[openedIndex].albums)
+            {
+                float ratio = coverSize / (float)album.cover.width;
+                DrawTextureEx(album.cover, vec2(i++ * 100, 0), 0, ratio, WHITE);
+            }
+        }
         EndDrawing();
     }
     return 0;
@@ -204,8 +236,7 @@ int main()
 int getDrawerIndex()
 {
     vec2 mousepos = GetMousePosition();
-    mousepos.x -= pos.x;//TODO FIX THIS NOT GOOD
-    int x = floor(mousepos.x / 128.f);
+    int x = floor((mousepos.x-pos.x * rectSize.x * 0.65f) / 128.f);
     int y = floor((mousepos.y-mousepos.x*0.558f) / 67.f)-1;
     int index = x + y*(floor(drawers.size()/3.f));
     if(index < drawers.size()) return index;
